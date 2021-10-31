@@ -329,15 +329,16 @@ tcc.1 : tcc-doc.pod
 # --------------------------------------------------------------------------
 # install
 
-INSTALL = install -m644
-INSTALLBIN = install -m755 $(STRIP_$(CONFIG_strip))
+INSTALL = install
+INSTALL_FILE = $(INSTALL) -m 644
+INSTALL_BIN = $(INSTALL) -m 755 $(STRIP_$(CONFIG_strip))
 STRIP_yes = -s
 
 LIBTCC1_W = $(filter %-win32-libtcc1.a %-wince-libtcc1.a,$(LIBTCC1_CROSS))
 LIBTCC1_U = $(filter-out $(LIBTCC1_W),$(LIBTCC1_CROSS))
-IB = $(if $1,$(IM) mkdir -p $2 && $(INSTALLBIN) $1 $2)
+IB = $(if $1,$(IM) mkdir -p $2 && $(INSTALL_BIN) $1 $2)
 IBw = $(call IB,$(wildcard $1),$2)
-IF = $(if $1,$(IM) mkdir -p $2 && $(INSTALL) $1 $2)
+IF = $(if $1,$(IM) mkdir -p $2 && $(INSTALL_FILE) $1 $2)
 IFw = $(call IF,$(wildcard $1),$2)
 IR = $(IM) mkdir -p $2 && cp -r $1/. $2
 IM = $(info -> $2 : $1)@
@@ -386,8 +387,8 @@ endif
 
 # the msys-git shell works to configure && make except it does not have install
 ifeq ($(CONFIG_WIN32)-$(shell which install || echo no),yes-no)
-install-win : INSTALL = cp
-install-win : INSTALLBIN = cp
+install-win : INSTALL_FILE = cp
+install-win : INSTALL_BIN = cp
 endif
 
 # uninstall on windows
