@@ -61,6 +61,12 @@
 
 #include "tcc.h"
 
+#if defined(TARGETOS_Linux)
+#include <libgen.h> /* dirname */
+#include <limits.h> /* PATH_MAX */
+#include <unistd.h> /* readlink */
+#endif
+
 /********************************************************/
 /* global variables */
 
@@ -495,6 +501,9 @@ static void tcc_split_path(TCCState *s, void *p_ary, int *p_nb_ary, const char *
                 c = p[1], p += 2;
                 if (c == 'B')
                     cstr_cat(&str, s->tcc_lib_path, -1);
+                if (c == 'r' && s->root_dir != NULL) {
+                    cstr_cat(&str, s->root_dir, -1);
+                }
                 if (c == 'f' && file) {
                     /* substitute current file's dir */
                     const char *f = file->true_filename;
@@ -816,7 +825,26 @@ LIBTCCAPI TCCState *tcc_new(void)
 
     tccelf_new(s);
 
+    /* https://stackoverflow.com/a/1024937 */
+#if defined(TARGETOS_Linux)
+    {
+        const char *exec_path, *bin_dir_path;
+
+        exec_path = tcc_mallocz(PATH_MAX);
+        readlink("/proc/self/exe", exec_path, PATH_MAX);
+
+        bin_dir_path = tcc_strdup(dirname(exec_path));
+        tcc_free(exec_path);
+
+        s->root_dir = tcc_strdup(dirname(bin_dir_path));
+        tcc_free(bin_dir_path);
+    }
+#else
+    s->root_dir = NULL;
+#endif
+
     tcc_set_lib_path(s, CONFIG_TCCDIR);
+
     return s;
 }
 
@@ -840,6 +868,7 @@ LIBTCCAPI void tcc_delete(TCCState *s1)
     tcc_free(s1->fini_symbol);
     tcc_free(s1->outfile);
     tcc_free(s1->deps_outfile);
+    tcc_free(s1->root_dir);
     dynarray_reset(&s1->files, &s1->nb_files);
     dynarray_reset(&s1->target_deps, &s1->nb_target_deps);
     dynarray_reset(&s1->pragma_libs, &s1->nb_pragma_libs);
@@ -1229,8 +1258,12 @@ LIBTCCAPI int tcc_add_symbol(TCCState *s1, const char *name, const void *val)
 
 LIBTCCAPI void tcc_set_lib_path(TCCState *s, const char *path)
 {
+    char **lib_paths = NULL;
+    int nb_lib_paths = 0;
+    tcc_split_path(s, &lib_paths, &nb_lib_paths, path);
     tcc_free(s->tcc_lib_path);
-    s->tcc_lib_path = tcc_strdup(path);
+    s->tcc_lib_path = tcc_strdup(lib_paths[0]);
+    dynarray_reset(&lib_paths, &nb_lib_paths);
 }
 
 /********************************************************/
@@ -1785,6 +1818,9 @@ reparse:
         case TCC_OPTION_B:
             /* set tcc utilities path (mainly for tcc development) */
             tcc_set_lib_path(s, optarg);
+
+            tcc_free(s->root_dir);
+            s->root_dir = tcc_strdup(optarg);
             break;
         case TCC_OPTION_l:
             args_parser_add_file(s, optarg, AFF_TYPE_LIB | (s->filetype & ~AFF_TYPE_MASK));

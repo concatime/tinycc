@@ -242,9 +242,8 @@ extern long double strtold (const char *__nptr, char **__endptr);
 #ifndef CONFIG_SYSROOT
 # define CONFIG_SYSROOT ""
 #endif
-#if !defined CONFIG_TCCDIR && !defined _WIN32
-# define CONFIG_TCCDIR "/usr/local/lib/tcc"
-#endif
+#undef CONFIG_TCCDIR
+#define CONFIG_TCCDIR "{r}/lib/tcc"
 #ifndef CONFIG_LDDIR
 # define CONFIG_LDDIR "lib"
 #endif
@@ -991,6 +990,8 @@ struct TCCState {
     char *deps_outfile; /* option -MF */
     int argc;
     char **argv;
+
+    const char *root_dir;
 };
 
 struct filespec {
